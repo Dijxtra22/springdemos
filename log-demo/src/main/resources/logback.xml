@@ -1,0 +1,58 @@
+<configuration scan="true" scanPeriod="5 seconds">
+    <!--定义变量-->
+    <property name="appName" value="log-demo"/>
+    <property name="filePath" value="log"/>
+
+    <!--appender:输出日志的核心，定义了日志的数据格式、日志类型、日志文件大小、日志保存时间和轮转策略-->
+    <!--控制台日志-->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%-5level] %logger{36} [%file:%line] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--时间划分-->
+    <timestamp key="byTime" datePattern="yyyy-MM-dd" />
+
+    <!--业务日志-->
+<!--    <appender name="normalFileAppender" class="ch.qos.logback.core.FileAppender">-->
+<!--        <file>${filePath}/${byTime}/${appName}.log</file>-->
+<!--        <encoder>-->
+<!--            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%-5level] %logger{36} [%file:%line] - %msg%n</pattern>-->
+<!--        </encoder>-->
+<!--    </appender>-->
+    <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!--防止单个文件过大，使用RollingFileAppender。
+        重要子组件：
+            RollingPolicy：负责日志轮转的功能（怎么做）；
+            TriggeringPolicy：负责日志轮转的时机（何时做）-->
+        <file>${filePath}/${byTime}/${appName}.log</file>
+        <!--例：基于文件尺寸和时间轮转，单个文件最大10M，保留15天，日志总计5GB-->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logPath}/${appName}/%d{yyyy-MM-dd}/${appName}-%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>15</maxHistory>
+            <totalSizeCap>5GB</totalSizeCap>
+        </rollingPolicy>
+        <!--filter例子：使用filter单独筛选某个level-->
+<!--        <filter class="ch.qos.logback.classic.filter.LevelFilter">-->
+<!--            <level>INFO</level>-->
+<!--            <onMatch>ACCEPT</onMatch>-->
+<!--            <onMismatch>DENY</onMismatch>-->
+<!--        </filter>-->
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%-5level] %logger{36} [%file:%line] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--用于设置一个包或一个类的日志打印级别-->
+    <!--name指定包名或类名，level指定输出日志级别，additivity指定是否集成root日志级别定义-->
+    <logger name="com.example.logdemo.controller" level="debug" additivity="false">
+        <appender-ref ref="file"/>
+    </logger>
+
+    <!--根级别的logger-->
+    <root level="debug">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
