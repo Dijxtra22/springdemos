@@ -11,7 +11,11 @@ import javax.websocket.*;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * ServerEndpoint 标识类为WebSocket服务端
@@ -33,6 +37,9 @@ public class WebSocket {
     private static int onlineCount = 0;
 
     private String userId;
+
+    private static final ConcurrentHashMap<Long, CopyOnWriteArrayList<String>> securityId2UsersMap = new ConcurrentHashMap<>();
+
     //concurrent包的线程安全Set，用来存放每个客户端对应的MyWebSocket对象。
     //虽然@Component默认是单例模式的，但springboot还是会为每个websocket连接初始化一个bean，所以可以用一个并发安全的map保存起来。
     private static final ConcurrentHashMap<String, WebSocket> webSocketMap = new ConcurrentHashMap<>();
@@ -91,18 +98,25 @@ public class WebSocket {
         if (StringUtils.hasLength(message)) {
             try {
                 //解析发送的报文
-                JSONObject jsonObject = JSON.parseObject(message);
+//                JSONObject jsonObject = JSON.parseObject(message);
                 //追加发送人(防止串改)
-                jsonObject.put("fromUserId", this.userId);
-                String toUserId = jsonObject.getString("toUserId");
+//                jsonObject.put("fromUserId", this.userId);
+//                String toUserId = jsonObject.getString("toUserId");
                 //传送给对应toUserId用户的websocket
-                if (StringUtils.hasLength(toUserId) && webSocketMap.containsKey(toUserId)) {
-                    webSocketMap.get(toUserId).sendMessage(jsonObject.toJSONString());
-                    webSocketMap.get(toUserId).sendMessage("我是服务器，我已收到消息");
-                } else {
-                    log.error("请求的userId:" + toUserId + "不在该服务器上");
+//                if (StringUtils.hasLength(toUserId) && webSocketMap.containsKey(toUserId)) {
+//                    webSocketMap.get(toUserId).sendMessage(jsonObject.toJSONString());
+//                    webSocketMap.get(toUserId).sendMessage("我是服务器，我已收到消息");
+//                } else {
+//                    log.error("请求的userId:" + toUserId + "不在该服务器上");
                     //否则不在这个服务器上，发送到mysql或者redis
+//                }
+                final Long secId = Long.valueOf(message);
+                if(securityId2UsersMap.containsKey(secId)){
+                    securityId2UsersMap.get(secId).add(userId);
+                }else{
+                    securityId2UsersMap.put(secId, new CopyOnWriteArrayList<>(List.of(userId)));
                 }
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -129,6 +143,18 @@ public class WebSocket {
      */
     public void sendMessage(String message) throws IOException {
         this.session.getBasicRemote().sendText(message);
+    }
+
+    /**
+     * 根据订阅id推送
+     * @param message
+     */
+    public void pushBySecId(long secId, String message){
+        final CopyOnWriteArrayList<String> strings = securityId2UsersMap.get(secId);
+        if(Objects.isNull(strings) || strings.isEmpty()) {
+            return;
+        }
+        sendMoreMessage(strings.toArray(new String[0]), message);
     }
 
 
